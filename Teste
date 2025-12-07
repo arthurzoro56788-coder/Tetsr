@@ -1,0 +1,515 @@
+print("🎯 SCRIPT ESP + AIMBOT 100% COMPLETO - SELETOR VISÍVEL")
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+------------------------------------------------------------
+-- TELA DE CARREGAMENTO
+------------------------------------------------------------
+local LoadingGui = Instance.new("ScreenGui")
+LoadingGui.Name = "CH_Loading"
+LoadingGui.ResetOnSpawn = false
+LoadingGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local LoadingFrame = Instance.new("Frame")
+LoadingFrame.Size = UDim2.new(1, 0, 1, 0)
+LoadingFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+LoadingFrame.BorderSizePixel = 0
+LoadingFrame.Parent = LoadingGui
+
+local LoadingText = Instance.new("TextLabel")
+LoadingText.Size = UDim2.new(1, 0, 0, 40)
+LoadingText.Position = UDim2.new(0, 0, 0.7, 0)
+LoadingText.BackgroundTransparency = 1
+LoadingText.Text = "Carregando: 0%"
+LoadingText.TextColor3 = Color3.fromRGB(255, 255, 255)
+LoadingText.TextScaled = true
+LoadingText.Font = Enum.Font.GothamBold
+LoadingText.Parent = LoadingFrame
+
+local BarBG = Instance.new("Frame")
+BarBG.Size = UDim2.new(0.5, 0, 0, 16)
+BarBG.AnchorPoint = Vector2.new(0.5, 0.5)
+BarBG.Position = UDim2.new(0.5, 0, 0.8, 0)
+BarBG.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+BarBG.BorderSizePixel = 0
+BarBG.Parent = LoadingFrame
+
+local BarBGCorner = Instance.new("UICorner")
+BarBGCorner.CornerRadius = UDim.new(0, 8)
+BarBGCorner.Parent = BarBG
+
+local BarFill = Instance.new("Frame")
+BarFill.Size = UDim2.new(0, 0, 1, 0)
+BarFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+BarFill.BorderSizePixel = 0
+BarFill.Parent = BarBG
+
+local BarFillCorner = Instance.new("UICorner")
+BarFillCorner.CornerRadius = UDim.new(0, 8)
+BarFillCorner.Parent = BarFill
+
+task.spawn(function()
+    for i = 1, 100 do
+        LoadingText.Text = "Carregando: " .. i .. "%"
+        BarFill.Size = UDim2.new(i/100, 0, 1, 0)
+        task.wait(0.03)
+    end
+    LoadingGui:Destroy()
+end)
+
+------------------------------------------------------------
+-- WHITELIST
+------------------------------------------------------------
+local Whitelist = {"angel_segund9"}
+if not table.find(Whitelist, LocalPlayer.Name) then
+    LocalPlayer:Kick("❌ Não autorizado!")
+    return
+end
+
+print("✅ " .. LocalPlayer.Name .. " carregado!")
+
+-- VARIÁVEIS
+local ESPMasterEnabled = false
+local AimbotEnabled = false
+local BoxEnabled = false
+local SkeletonEnabled = false
+local BillboardEnabled = false
+local NameEnabled = true
+local DistanceEnabled = true
+local AimbotPart = "Cabeça"
+local AimbotParts = {"Cabeça", "Pescoço", "Peito", "Pernas", "Braços", "Disfarçado"}
+local CurrentPartIndex = 1
+local PlayerESPs = {}
+
+----------------------------------------------------------------
+-- WALLCHECK
+----------------------------------------------------------------
+local function isVisible(targetPart)
+    if not targetPart or not LocalPlayer.Character then return false end
+    local origin = Camera.CFrame.Position
+    local direction = (targetPart.Position - origin).Unit * 1000
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+    local result = workspace:Raycast(origin, direction, raycastParams)
+    return not result or result.Instance:IsDescendantOf(targetPart.Parent)
+end
+
+----------------------------------------------------------------
+-- AIMBOT - DISFARÇADO ALEATÓRIO
+----------------------------------------------------------------
+local function getTargetPart(char)
+    if AimbotPart == "Cabeça" then
+        return char:FindFirstChild("Head")
+    elseif AimbotPart == "Pescoço" then
+        return char:FindFirstChild("Neck") or char:FindFirstChild("Head")
+    elseif AimbotPart == "Peito" then
+        return char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char:FindFirstChild("HumanoidRootPart")
+    elseif AimbotPart == "Pernas" then
+        local legs = {"LeftUpperLeg","RightUpperLeg","LeftLowerLeg","RightLowerLeg"}
+        local leg = legs[math.random(1, #legs)]
+        return char:FindFirstChild(leg)
+    elseif AimbotPart == "Braços" then
+        local arms = {"LeftUpperArm","RightUpperArm","LeftLowerArm","RightLowerArm"}
+        local arm = arms[math.random(1, #arms)]
+        return char:FindFirstChild(arm)
+    else -- Disfarçado = ALEATÓRIO TOTAL
+        local allParts = {"Head", "UpperTorso", "LowerTorso", "Torso", "HumanoidRootPart",
+                         "LeftUpperArm", "LeftLowerArm", "RightUpperArm", "RightLowerArm",
+                         "LeftUpperLeg", "LeftLowerLeg", "RightUpperLeg", "RightLowerLeg"}
+        local validParts = {}
+        for _, partName in ipairs(allParts) do
+            if char:FindFirstChild(partName) then
+                table.insert(validParts, partName)
+            end
+        end
+        if #validParts > 0 then
+            return char:FindFirstChild(validParts[math.random(1, #validParts)])
+        end
+        return char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Head")
+    end
+end
+
+local function getClosestTarget()
+    local closest, shortest = nil, math.huge
+    local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            local part = getTargetPart(plr.Character)
+            if part and isVisible(part) then
+                local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                if onScreen then
+                    local mag = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                    if mag < shortest then
+                        shortest = mag
+                        closest = part
+                    end
+                end
+            end
+        end
+    end
+    return closest
+end
+
+RunService.RenderStepped:Connect(function()
+    if AimbotEnabled then
+        local target = getClosestTarget()
+        if target then
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, target.Position)
+        end
+    end
+end)
+
+----------------------------------------------------------------
+-- ESP FUNCTIONS
+----------------------------------------------------------------
+local function clearESP(player)
+    if PlayerESPs[player] then
+        for _, obj in pairs(PlayerESPs[player]) do
+            if obj then pcall(function() obj:Destroy() end) end
+        end
+        PlayerESPs[player] = nil
+    end
+end
+
+local function createBoxESP(char)
+    local box = Instance.new("BoxHandleAdornment")
+    box.Name = "BoxESP"
+    box.Adornee = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso")
+    box.Size = Vector3.new(1.5, 3, 1)
+    box.Color3 = Color3.fromRGB(255, 0, 0)
+    box.Transparency = 1
+    box.AlwaysOnTop = true
+    box.ZIndex = 0
+    box.Parent = char
+    return box
+end
+
+local function createSkeletonESP(char)
+    local folder = Instance.new("Folder")
+    folder.Name = "SkeletonESP"
+    folder.Parent = char
+    local parts = {"Head","UpperTorso","LowerTorso","HumanoidRootPart","LeftUpperArm","RightUpperArm","LeftUpperLeg","RightUpperLeg"}
+    for _, n in ipairs(parts) do
+        local p = char:FindFirstChild(n)
+        if p then
+            local h = Instance.new("Highlight")
+            h.Name = n .. "_HL"
+            h.Adornee = p
+            h.FillColor = Color3.fromRGB(255,0,0)
+            h.OutlineColor = Color3.fromRGB(255,255,255)
+            h.FillTransparency = 0.7
+            h.OutlineTransparency = 0
+            h.Enabled = false
+            h.Parent = folder
+        end
+    end
+    return folder
+end
+
+local function createBillboardESP(char, playerName)
+    local head = char:FindFirstChild("Head")
+    if not head then return nil end
+    
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "BillboardESP"
+    billboard.Adornee = head
+    billboard.Size = UDim2.new(0, 120, 0, 80)
+    billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+    billboard.AlwaysOnTop = true
+    billboard.Parent = head
+
+    local mainBG = Instance.new("Frame")
+    mainBG.Name = "MainBG"
+    mainBG.Size = UDim2.new(1, 0, 1, 0)
+    mainBG.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    mainBG.BackgroundTransparency = 0.3
+    mainBG.BorderSizePixel = 0
+    mainBG.Parent = billboard
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Name = "NameLabel"
+    nameLabel.Size = UDim2.new(1, 0, 0.25, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = playerName
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    nameLabel.TextScaled = true
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.Parent = mainBG
+
+    local hpFrame = Instance.new("Frame")
+    hpFrame.Name = "HPFrame"
+    hpFrame.Size = UDim2.new(1, -8, 0.35, 0)
+    hpFrame.Position = UDim2.new(0, 4, 0.25, 0)
+    hpFrame.BackgroundTransparency = 1
+    hpFrame.Parent = mainBG
+
+    local hpBarBG = Instance.new("Frame")
+    hpBarBG.Name = "HPBarBG"
+    hpBarBG.Size = UDim2.new(1, 0, 1, 0)
+    hpBarBG.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    hpBarBG.BorderSizePixel = 0
+    hpBarBG.Parent = hpFrame
+
+    local hpCornerBG = Instance.new("UICorner")
+    hpCornerBG.CornerRadius = UDim.new(0, 4)
+    hpCornerBG.Parent = hpBarBG
+
+    local hpBar = Instance.new("Frame")
+    hpBar.Name = "HPBar"
+    hpBar.Size = UDim2.new(1, 0, 1, 0)
+    hpBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    hpBar.BorderSizePixel = 0
+    hpBar.Parent = hpBarBG
+
+    local hpCorner = Instance.new("UICorner")
+    hpCorner.CornerRadius = UDim.new(0, 4)
+    hpCorner.Parent = hpBar
+
+    local hpText = Instance.new("TextLabel")
+    hpText.Name = "HPText"
+    hpText.Size = UDim2.new(1, 0, 1, 0)
+    hpText.BackgroundTransparency = 1
+    hpText.Text = "100/100"
+    hpText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    hpText.TextScaled = true
+    hpText.Font = Enum.Font.GothamBold
+    hpText.Parent = hpFrame
+
+    local distLabel = Instance.new("TextLabel")
+    distLabel.Name = "DistLabel"
+    distLabel.Size = UDim2.new(1, 0, 0.2, 0)
+    distLabel.Position = UDim2.new(0, 0, 0.65, 0)
+    distLabel.BackgroundTransparency = 1
+    distLabel.Text = "0m"
+    distLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+    distLabel.TextScaled = true
+    distLabel.Font = Enum.Font.Gotham
+    distLabel.Parent = mainBG
+
+    return billboard
+end
+
+local function setupESP(player)
+    if player == LocalPlayer then return end
+    local function onCharAdded(char)
+        task.wait(1)
+        clearESP(player)
+        local rootPart = char:FindFirstChild("HumanoidRootPart")
+        local head = char:FindFirstChild("Head")
+        if rootPart and head then
+            PlayerESPs[player] = {
+                box = createBoxESP(char),
+                skeleton = createSkeletonESP(char),
+                billboard = createBillboardESP(char, player.Name)
+            }
+        end
+    end
+    if player.Character then onCharAdded(player.Character) end
+    player.CharacterAdded:Connect(onCharAdded)
+end
+
+for _, p in ipairs(Players:GetPlayers()) do setupESP(p) end
+Players.PlayerAdded:Connect(setupESP)
+Players.PlayerRemoving:Connect(clearESP)
+
+----------------------------------------------------------------
+-- ESP UPDATE CORRIGIDO
+----------------------------------------------------------------
+RunService.Heartbeat:Connect(function()
+    for player, esp in pairs(PlayerESPs) do
+        if player and player.Character then
+            local char = player.Character
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            local rootPart = char:FindFirstChild("HumanoidRootPart")
+            local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+            if humanoid and rootPart and myRoot then
+                local distance = math.floor((rootPart.Position - myRoot.Position).Magnitude)
+                local currentHP = math.floor(humanoid.Health)
+                local maxHP = math.floor(humanoid.MaxHealth)
+                local hpPercent = maxHP > 0 and math.clamp(currentHP / maxHP, 0, 1) or 0
+
+                if esp.box then 
+                    esp.box.Transparency = (ESPMasterEnabled and BoxEnabled) and 0.5 or 1
+                end
+
+                if esp.skeleton then 
+                    for _, hl in ipairs(esp.skeleton:GetChildren()) do 
+                        if hl:IsA("Highlight") then 
+                            hl.Enabled = (ESPMasterEnabled and SkeletonEnabled)
+                        end 
+                    end 
+                end
+
+                if esp.billboard then
+                    esp.billboard.Enabled = (ESPMasterEnabled and BillboardEnabled)
+                    
+                    local mainBG = esp.billboard:FindFirstChild("MainBG")
+                    if mainBG then
+                        local nameLabel = mainBG:FindFirstChild("NameLabel")
+                        if nameLabel then nameLabel.Visible = NameEnabled end
+
+                        local distLabel = mainBG:FindFirstChild("DistLabel")
+                        if distLabel then
+                            distLabel.Visible = DistanceEnabled
+                            distLabel.Text = distance .. "m"
+                        end
+
+                        local hpFrame = mainBG:FindFirstChild("HPFrame")
+                        if hpFrame then
+                            local hpBarBG = hpFrame:FindFirstChild("HPBarBG")
+                            local hpBar = hpBarBG and hpBarBG:FindFirstChild("HPBar")
+                            local hpText = hpFrame:FindFirstChild("HPText")
+                            
+                            if hpBar and hpText then
+                                hpBar.Size = UDim2.new(hpPercent, 0, 1, 0)
+                                hpText.Text = currentHP .. "/" .. maxHP
+                                
+                                if hpPercent > 0.6 then hpBar.BackgroundColor3 = Color3.fromRGB(0,255,0)
+                                elseif hpPercent > 0.3 then hpBar.BackgroundColor3 = Color3.fromRGB(255,255,0)
+                                else hpBar.BackgroundColor3 = Color3.fromRGB(255,0,0) end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+----------------------------------------------------------------
+-- MENU SCROLLÁVEL + SELETOR CORRIGIDO
+----------------------------------------------------------------
+task.wait(3.2)
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CampoHeadshot"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local CentralButton = Instance.new("TextButton")
+CentralButton.Size = UDim2.new(0, 90, 0, 90)
+CentralButton.Position = UDim2.new(0, 20, 0.5, -45)
+CentralButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+CentralButton.Text = "🎯"
+CentralButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CentralButton.TextScaled = true
+CentralButton.Font = Enum.Font.GothamBold
+CentralButton.Parent = ScreenGui
+
+local CentralCorner = Instance.new("UICorner")
+CentralCorner.CornerRadius = UDim.new(0, 20)
+CentralCorner.Parent = CentralButton
+
+local MainFrame = Instance.new("ScrollingFrame")
+MainFrame.Size = UDim2.new(0, 450, 0, 500)
+MainFrame.Position = UDim2.new(-450, 0, 0.5, -250)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.ScrollBarThickness = 10
+MainFrame.CanvasSize = UDim2.new(0, 0, 0, 1000)
+MainFrame.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 0)
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 20)
+MainCorner.Parent = MainFrame
+
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Size = UDim2.new(1, -20, 0, 1000)
+ContentFrame.Position = UDim2.new(0, 10, 0, 0)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 60)
+Title.BackgroundTransparency = 1
+Title.Text = "🇧🇷 MENU ESP + AIMBOT"
+Title.TextColor3 = Color3.fromRGB(0, 255, 0)
+Title.TextScaled = true
+Title.Font = Enum.Font.GothamBold
+Title.Parent = ContentFrame
+
+local slideInfo = TweenInfo.new(0.4, Enum.EasingStyle.Back)
+local slideIn = TweenService:Create(MainFrame, slideInfo, {Position = UDim2.new(0, 130, 0.5, -250)})
+local slideOut = TweenService:Create(MainFrame, slideInfo, {Position = UDim2.new(-450, 0, 0.5, -250)})
+
+CentralButton.MouseButton1Click:Connect(function()
+    if MainFrame.Position == UDim2.new(-450, 0, 0.5, -250) then
+        slideIn:Play()
+    else
+        slideOut:Play()
+    end
+end)
+
+local function createToggleButton(text, posY, toggleVar, defaultState)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.45, -5, 0, 45)
+    btn.Position = UDim2.new(0.025, 0, 0, posY)
+    btn.BackgroundColor3 = defaultState and Color3.fromRGB(20, 100, 20) or Color3.fromRGB(60, 20, 20)
+    btn.Text = text .. ": " .. (defaultState and "LIGADO" or "DESLIGADO")
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextScaled = true
+    btn.Font = Enum.Font.GothamBold
+    btn.Parent = ContentFrame
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 12)
+    corner.Parent = btn
+    
+    btn.MouseButton1Click:Connect(function()
+        if toggleVar == "ESPMasterEnabled" then ESPMasterEnabled = not ESPMasterEnabled
+        elseif toggleVar == "BoxEnabled" then BoxEnabled = not BoxEnabled
+        elseif toggleVar == "SkeletonEnabled" then SkeletonEnabled = not SkeletonEnabled
+        elseif toggleVar == "BillboardEnabled" then BillboardEnabled = not BillboardEnabled
+        elseif toggleVar == "NameEnabled" then NameEnabled = not NameEnabled
+        elseif toggleVar == "DistanceEnabled" then DistanceEnabled = not DistanceEnabled
+        elseif toggleVar == "AimbotEnabled" then AimbotEnabled = not AimbotEnabled end
+        
+        local isOn = (toggleVar == "ESPMasterEnabled" and ESPMasterEnabled) or
+                    (toggleVar == "BoxEnabled" and BoxEnabled) or
+                    (toggleVar == "SkeletonEnabled" and SkeletonEnabled) or
+                    (toggleVar == "BillboardEnabled" and BillboardEnabled) or
+                    (toggleVar == "NameEnabled" and NameEnabled) or
+                    (toggleVar == "DistanceEnabled" and DistanceEnabled) or
+                    (toggleVar == "AimbotEnabled" and AimbotEnabled)
+        
+        btn.Text = text .. ": " .. (isOn and "LIGADO" or "DESLIGADO")
+        btn.BackgroundColor3 = isOn and Color3.fromRGB(20, 100, 20) or Color3.fromRGB(60, 20, 20)
+    end)
+end
+
+createToggleButton("🌟 ATIVAR ESP", 80, "ESPMasterEnabled", false)
+createToggleButton("📦 CAIXA", 130, "BoxEnabled", false)
+createToggleButton("💀 ESQUELETO", 180, "SkeletonEnabled", false)
+createToggleButton("❤️ BARRA DE VIDA", 230, "BillboardEnabled", false)
+createToggleButton("👤 NOME", 280, "NameEnabled", true)
+createToggleButton("📏 DISTÂNCIA", 330, "DistanceEnabled", true)
+createToggleButton("🎯 AIMBOT", 380, "AimbotEnabled", false)
+
+-- SELETOR PARTES AIMBOT ✅ VISÍVEL E FUNCIONANDO
+local selectorFrame = Instance.new("Frame")
+selectorFrame.Size = UDim2.new(0.9, 0, 0, 60)
+selectorFrame.Position = UDim2.new(0.05, 0, 0, 440)
+selectorFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+selectorFrame.Parent = ContentFrame
+
+local selectorCorner = Instance.new("UICorner")
+selectorCorner.CornerRadius = UDim.new(0, 12)
+selectorCorner.Parent = selectorFrame
+
+local partLabel = Instance.new("TextLabel")
+partLabel.Size = UDim2.new(0.3, 0, 1, 0)
+partLabel.BackgroundTransparency = 1
+partLabel.Text = "🎯 PARTE DO AIMBOT:"
+partLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+partLabel.TextScaled = true
+partLabel.Font = Enum.Font.GothamBold
+partLabel.TextXAlignment = Enum.TextXAlignment.Left
+partLabel.
